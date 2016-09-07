@@ -1,0 +1,129 @@
+- hosts: dbserver
+  user: root
+  tasks:
+    - name: package install
+      yum: name={{ item }} state=latest
+      with_items:
+        - mysql
+        - mysql-server
+        - mysql-libs
+        - mysql-devel
+        - MySQL-python
+
+    - name: upload my.cnf
+      copy: src=./files/my.cnf dest=/etc/my.cnf owner=root group=root mode=0644
+
+    - name: restart mysql
+      service: name=mysqld state=restarted enabled=yes
+
+    - name: create db
+      mysql_db: name=webapp state=present
+
+    - name: create user for app
+      mysql_user: name=webapp password=webapp priv=webapp.*:ALL,GRANT state=present host=192.168.100.20
+
+    - name: delete default user
+      mysql_user: name="" state=absent host=database
+
+    - name: delete default user
+      mysql_user: name="" state=absent host=localhost
+
+- hosts: webserver
+  user: root
+  tasks:
+    - name: pakage install
+      yum: name={{ item }} state=latest
+      with_items:
+        - httpd
+        - libcurl-devel
+        - mysql-devel
+        - git
+        - readline-devel
+        - httpd-devel
+        - unzip
+
+    - name: Install rbenv
+      git: repo=https://github.com/sstephenson/rbenv.git dest=~/.rbenv
+
+    - name: Add rbenv to PATH
+      lineinfile: >
+        dest="~/.bash_profile"
+        line="export PATH=$HOME/.rbenv/bin:$PATH"
+
+    - name: Eval rbenv
+      lineinfile: >
+        dest="~/.bash_profile"
+        line='eval "$(rbenv init -)"'
+
+    - name: Install ruby-build
+      git: repo=https://github.com/sstephenson/ruby-build.git dest=~/.rbenv/plugins/ruby-build
+
+    - name: Check if version is installed ruby
+      shell: "source ~/.bash_profile; rbenv versions | grep 2.3.1"
+      register: rbenv_check_install
+      changed_when: False
+      ignore_errors: yes
+
+    - name: Install ruby
+      shell: "source ~/.bash_profile; rbenv install 2.3.1"
+      when: rbenv_check_install|failed
+
+    - name: Check if version is the default ruby version
+      shell: "source ~/.bash_profile; rbenv version | grep 2.3.1"
+      register: rbenv_check_default
+      changed_when: False
+      ignore_errors: yes
+
+    - name: Set default ruby version
+      shell: "source ~/.bash_profile; rbenv global 2.3.1"
+      when: rbenv_check_default|failed
+
+    - name: Install rails and bundler
+      gem: name={{ item }} executable=.rbenv/shims/gem user_install=False
+      with_items:
+        - rails
+        - bundler
+        - passenger
+
+    - name: upload httpd.conf
+      copy: src=./files/httpd.conf dest=/etc/httpd/conf/httpd.conf owner=root group=root mode=0644
+
+    - name: upload httpd.conf
+      copy: src=./files/passenger.conf dest=/etc/httpd/conf.d/passenger.conf owner=root group=root mode=0644
+
+    - name: find passenger module
+      stat: path=/root/.rbenv/versions/2.3.1/lib/ruby/gems/2.3.0/gems/passenger-5.0.30/buildout/apache2/mod_passenger.so
+      register: module
+
+    - name: passenger-module should be installed
+      shell: "source ~/.bash_profile; rbenv rehash;passenger-install-apache2-module --auto --languages=ruby"
+      when: module.stat.exists != True
+
+    - name: restart httpd
+      service: name=httpd state=restarted enabled=yes
+
+    - name: upload app
+      copy: src=./files/rssreader.zip dest=/home/vagrant/rssreader.zip owner=root group=root mode=0644
+
+    - name: find app
+      stat: path=/home/vagrant/rssreader
+      register: appdir
+
+    - name: unzip app
+      command: "unzip /home/vagrant/rssreader.zip -d /home/vagrant/"
+      when: appdir.stat.exists != True
+
+    - name: bundle install
+      bundler: state=present chdir=/home/vagrant/rssreader executable=/root/.rbenv/versions/2.3.1/bin/bundle
+
+    - name: db migrate
+      shell: "source ~/.bash_profile;cd /home/vagrant/rssreader; rake db:migrate"
+
+    - name: change mode vagrant dir
+      file: path=/home/vagrant owner=vagrant group=vagrant mode=0701
+
+    - name: change mode rssreader dir
+      file: path=/home/vagrant/rssreader owner=vagrant group=vagrant recurse=yes
+
+    - name: change mode root dir
+      file: path=/root mode=o+x
