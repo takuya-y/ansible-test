@@ -21,7 +21,6 @@ Vagrant.configure(2) do |config|
         node.vm.network :forwarded_port, id: "ssh", guest: 22, host: 2210
         node.vm.provision :shell, :inline => "yum install ansible -y"
         node.vm.provision :shell, :inline => "yum install git -y"
-        node.vm.provision :shell, :inline => "git clone https://github.com/takuya-y/ansible-test.git"
-        node.vm.provision :shell, :inline => "ssh-keygen -t rsa -f /root/.ssh/id_rsa -N ''"
+        node.vm.provision :shell, :inline => "ssh-keygen -t rsa -f /vagrant/.ssh/id_rsa -N ''"
   end
 end

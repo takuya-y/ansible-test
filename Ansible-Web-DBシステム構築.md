@@ -34,15 +34,15 @@ Webサーバ(Apache)1台とDBサーバ(MySQL)1台を連携させる
 
 #### VMを3台デプロイする　　
 1. 以下のVagrantfileを用意する
-```
-  ※ Vagrantfileの中身を記載する
-```
-IP Address  
-管理サーバ: 192.168.100.10  
-webサーバ: 192.168.100.20  
-DBサーバ: 192.168.100.30  
 
-管理サーバでansibleとgitのインストール、鍵の作成まで行っている。  
+  [Vagrantfile](https://github.com/takuya-y/ansible-test/blob/master/Vagrantfile)
+
+  IP Address  
+  管理サーバ: 192.168.100.10  
+  webサーバ: 192.168.100.20  
+  DBサーバ: 192.168.100.30  
+
+  管理サーバでansibleとgitのインストール、鍵の作成まで行っている。  
 
 1. Vagrantを実行しVMをデプロイ
 ```
@@ -68,6 +68,7 @@ DBサーバ: 192.168.100.30
   ```
   1. Ansible実行
   ```
+    # cd ansible-test/ansible
     # ansible-playbook -i inventory/hosts master.yml
     <略>
 
